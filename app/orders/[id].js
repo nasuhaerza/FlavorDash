@@ -1,18 +1,14 @@
 /**
  * app/orders/[id].js
- * Halaman Detail Pesanan — PROTECTED ROUTE
- *
- * Fitur:
- * - Route Protection via JWT (redirect login jika token tidak valid)
- * - Tombol "Foto Bukti" → buka expo-camera
- * - Tombol "Lihat Peta" → buka react-native-maps dengan koordinat restoran
- * - Tampilkan foto bukti setelah diambil
+ * Detail Pesanan — PROTECTED ROUTE
+ * Data diambil dari Supabase via useOrderDetail hook
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     Image,
     ScrollView,
@@ -24,9 +20,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Header from '../../components/layout/Header';
+import EmptyState from '../../components/ui/EmptyState';
 import Colors from '../../constants/Colors';
-import { MOCK_ORDERS } from '../../constants/mockData';
 import { useAuth } from '../../contexts/AuthContext';
+import { useOrderDetail } from '../../hooks/useOrderDetail';
 import { calcOrderTotal, formatDate, formatPrice } from '../../utils/formatters';
 
 const STATUS_CONFIG = {
@@ -57,44 +54,55 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams();
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // Foto bukti dari kamera
   const [proofPhoto, setProofPhoto] = useState(null);
 
   // ── Route Protection ────────────────────────────────
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       Alert.alert(
         'Sesi Berakhir',
         'Token Anda tidak valid atau sudah kedaluwarsa.',
         [{ text: 'Login', onPress: () => router.replace('/(auth)/login') }]
       );
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, authLoading]);
 
-  if (isLoading) {
+  // ── Fetch order dari Supabase ────────────────────────
+  const { order, loading: orderLoading, error: orderError } = useOrderDetail(
+    isAuthenticated ? id : null
+  );
+
+  if (authLoading || orderLoading) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.loadingText}>Memverifikasi sesi...</Text>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>
+          {authLoading ? 'Memverifikasi sesi...' : 'Memuat pesanan...'}
+        </Text>
       </View>
     );
   }
+
   if (!isAuthenticated) return null;
 
-  const order = MOCK_ORDERS.find((o) => o.id === String(id));
-
-  if (!order) {
+  if (orderError) {
     return (
-      <View style={styles.notFound}>
+      <View style={styles.root}>
         <Header title="Detail Pesanan" showBack />
-        <View style={styles.notFoundBody}>
-          <Text style={styles.notFoundIcon}>📭</Text>
-          <Text style={styles.notFoundText}>Pesanan tidak ditemukan</Text>
-        </View>
+        <EmptyState
+          icon="alert-circle-outline"
+          title="Pesanan Tidak Ditemukan"
+          message={orderError}
+          actionLabel="Kembali"
+          onAction={() => router.back()}
+        />
       </View>
     );
   }
+
+  if (!order) return null;
 
   const status   = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.processing;
   const subtotal = order.items.reduce((sum, i) => sum + i.price * i.qty, 0);

@@ -1,50 +1,46 @@
 /**
  * hooks/useFoodCatalog.js
- * Custom hook untuk fetching katalog makanan
- *
- * Menangani: loading, error, refresh, search, dan cancel request
+ * Fetch katalog dari Supabase (dengan fallback ke mockData)
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchFoodCatalog } from '../services/foodService';
+import { fetchFoods } from '../services/supabaseFoodService';
 
-export function useFoodCatalog() {
+export function useFoodCatalog({ category, search, sortBy } = {}) {
   const [data,       setData]       = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error,      setError]      = useState(null);
-  const [source,     setSource]     = useState(null); // 'mock' | 'local'
+  const [source,     setSource]     = useState(null);
 
   const abortRef = useRef(null);
 
   const load = useCallback(async (isRefresh = false) => {
-    // Batalkan request sebelumnya
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+    isRefresh ? setRefreshing(true) : setLoading(true);
     setError(null);
 
     try {
-      const result = await fetchFoodCatalog(controller.signal);
-      setData(result.data);
-      setSource(result.source);
+      const result = await fetchFoods({ category, search, sortBy });
+      if (!controller.signal.aborted) {
+        setData(result.data);
+        setSource(result.source);
+      }
     } catch (err) {
-      if (err.message !== 'Request cancelled') {
+      if (!controller.signal.aborted) {
         setError('Gagal memuat data. Periksa koneksi Anda.');
       }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [category, search, sortBy]);
 
-  // Load saat pertama mount
   useEffect(() => {
     load();
     return () => abortRef.current?.abort();

@@ -57,7 +57,7 @@ export default function CartScreen() {
   const DELIVERY_FEE = cart.length > 0 ? 5000 : 0;
   const grandTotal = cartTotal + DELIVERY_FEE;
 
-  function handleCheckout() {
+  async function handleCheckout() {
     Alert.alert(
       'Konfirmasi Pesanan',
       `Total pembayaran: ${formatPrice(grandTotal)}\n\nLanjutkan ke pembayaran?`,
@@ -65,11 +65,23 @@ export default function CartScreen() {
         { text: 'Batal', style: 'cancel' },
         {
           text: 'Pesan Sekarang',
-          onPress: () => {
-            clearCart();
-            Alert.alert('✅ Pesanan Berhasil!', 'Pesanan Anda sedang diproses.', [
-              { text: 'OK', onPress: () => router.replace('/(tabs)/orders') },
-            ]);
+          onPress: async () => {
+            try {
+              // Simpan ke Supabase (atau simulasi jika belum dikonfigurasi)
+              await createOrder({
+                items:       cart.map((i) => ({ foodId: i.id, name: i.name, qty: i.qty, price: i.price })),
+                address:     'Jl. Kebon Sirih No.12, Jakarta Pusat',
+                note:        '',
+                deliveryFee: DELIVERY_FEE,
+                restaurant:  null,
+              });
+              clearCart();
+              Alert.alert('✅ Pesanan Berhasil!', 'Pesanan Anda sedang diproses.', [
+                { text: 'OK', onPress: () => router.replace('/(tabs)/orders') },
+              ]);
+            } catch (err) {
+              Alert.alert('Gagal', err.message || 'Pesanan gagal. Silakan coba lagi.');
+            }
           },
         },
       ]

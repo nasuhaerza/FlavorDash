@@ -81,6 +81,7 @@ export default function ProfileScreen() {
 
   // ── Toast ────────────────────────────────────────────
   const { notify, NotificationView } = useNotification();
+  const { connected, checking, source: dbSource } = useSupabaseStatus();
 
   const paddingTop =
     Platform.OS === 'android'
@@ -260,6 +261,22 @@ export default function ProfileScreen() {
           <View style={styles.jwtRow}>
             <Text style={styles.jwtLabel}>Berlaku hingga</Text>
             <Text style={styles.jwtValue}>{tokenExpDisplay}</Text>
+          </View>
+          <View style={styles.jwtRow}>
+            <Text style={styles.jwtLabel}>Database</Text>
+            <View style={[styles.jwtStatus, {
+              backgroundColor: checking
+                ? Colors.textLight + '30'
+                : connected ? Colors.success + '20' : Colors.warning + '20'
+            }]}>
+              <Text style={[styles.jwtStatusText, {
+                color: checking
+                  ? Colors.textGray
+                  : connected ? Colors.success : Colors.warning
+              }]}>
+                {checking ? '⏳ Mengecek...' : connected ? '☁️ Supabase' : '💾 Lokal'}
+              </Text>
+            </View>
           </View>
           <Text style={styles.jwtNote}>
             * Token tersimpan di AsyncStorage. Sesi terjaga meski app ditutup.

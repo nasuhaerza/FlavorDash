@@ -1,12 +1,15 @@
 /**
  * utils/polyfills.js
- * Polyfill Buffer untuk React Native (dibutuhkan jwtHelper.js)
- * Import file ini di entry point sebelum menggunakan jwtHelper
+ * Polyfill yang dibutuhkan untuk React Native:
+ * - Buffer  : untuk JWT encoding
+ * - URL     : untuk Supabase client (react-native-url-polyfill)
  */
+
+// URL polyfill — HARUS diimport sebelum Supabase client
+import 'react-native-url-polyfill/auto';
 
 import { Buffer } from 'buffer';
 
-// Expose Buffer ke global scope
 if (typeof global.Buffer === 'undefined') {
   global.Buffer = Buffer;
 }

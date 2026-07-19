@@ -2,9 +2,9 @@
  * app/(auth)/register.js
  * Halaman Register FlavorDash
  *
- * Catatan keyboard:
- * - Tidak menggunakan Pressable wrapper (memblokir TextInput tap)
- * - TouchableWithoutFeedback hanya untuk dismiss keyboard di area kosong
+ * Keyboard: TIDAK ada wrapper yang menghalangi TextInput.
+ * - keyboardShouldPersistTaps="handled" → tombol dalam ScrollView tetap bisa di-tap
+ * - keyboardDismissMode="on-drag"       → scroll ke bawah dismiss keyboard
  * - Field chaining: Nama → Email → Password → Konfirmasi → Submit
  */
 
@@ -12,16 +12,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-    Alert,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -31,11 +30,10 @@ import Colors from '../../constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function RegisterScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const router          = useRouter();
+  const insets          = useSafeAreaInsets();
+  const { register }    = useAuth();
 
-  // Refs untuk chaining fokus antar field
   const emailRef    = useRef(null);
   const passwordRef = useRef(null);
   const confirmRef  = useRef(null);
@@ -65,14 +63,14 @@ export default function RegisterScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
-      await login('user@flavordash.com', 'password123');
+      await register(email, password, name);
       Alert.alert(
         '✅ Registrasi Berhasil!',
         'Akun Anda telah dibuat. Selamat datang di FlavorDash!',
         [{ text: 'Mulai Pesan', onPress: () => router.replace('/(tabs)/home') }]
       );
-    } catch {
-      Alert.alert('Gagal', 'Terjadi kesalahan. Silakan coba lagi.');
+    } catch (err) {
+      Alert.alert('Gagal Mendaftar', err.message || 'Terjadi kesalahan. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -83,117 +81,112 @@ export default function RegisterScreen() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.container,
-            { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ── Back ──────────────────────── */}
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={22} color={Colors.secondary} />
-            <Text style={styles.backText}>Kembali</Text>
+      {/* ScrollView langsung tanpa wrapper yang menghalangi touch */}
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Back ──────────────── */}
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={22} color={Colors.secondary} />
+          <Text style={styles.backText}>Kembali</Text>
+        </TouchableOpacity>
+
+        {/* ── Header ────────────── */}
+        <View style={styles.header}>
+          <View style={styles.logoWrap}>
+            <Text style={styles.logoIcon}>🍽️</Text>
+          </View>
+          <Text style={styles.title}>Buat Akun Baru</Text>
+          <Text style={styles.subtitle}>Daftar dan nikmati kemudahan pesan makanan</Text>
+        </View>
+
+        {/* ── Form ──────────────── */}
+        <View style={styles.card}>
+          <InputField
+            label="Nama Lengkap"
+            value={name}
+            onChangeText={(v) => { setName(v); setErrors(e => ({ ...e, name: '' })); }}
+            placeholder="Contoh: User"
+            autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
+            returnKeyType="next"
+            onSubmitEditing={() => emailRef.current?.focus()}
+            blurOnSubmit={false}
+            error={errors.name}
+            leftIcon={<Ionicons name="person-outline" size={18} color={Colors.textGray} />}
+          />
+
+          <InputField
+            inputRef={emailRef}
+            label="Email"
+            value={email}
+            onChangeText={(v) => { setEmail(v); setErrors(e => ({ ...e, email: '' })); }}
+            placeholder="contoh@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            blurOnSubmit={false}
+            error={errors.email}
+            leftIcon={<Ionicons name="mail-outline" size={18} color={Colors.textGray} />}
+          />
+
+          <InputField
+            inputRef={passwordRef}
+            label="Password"
+            value={password}
+            onChangeText={(v) => { setPassword(v); setErrors(e => ({ ...e, password: '' })); }}
+            placeholder="Minimal 6 karakter"
+            secureTextEntry
+            autoComplete="new-password"
+            textContentType="newPassword"
+            returnKeyType="next"
+            onSubmitEditing={() => confirmRef.current?.focus()}
+            blurOnSubmit={false}
+            error={errors.password}
+            leftIcon={<Ionicons name="lock-closed-outline" size={18} color={Colors.textGray} />}
+          />
+
+          <InputField
+            inputRef={confirmRef}
+            label="Konfirmasi Password"
+            value={confirm}
+            onChangeText={(v) => { setConfirm(v); setErrors(e => ({ ...e, confirm: '' })); }}
+            placeholder="Ulangi password"
+            secureTextEntry
+            autoComplete="new-password"
+            textContentType="newPassword"
+            returnKeyType="done"
+            onSubmitEditing={handleRegister}
+            error={errors.confirm}
+            leftIcon={<Ionicons name="shield-checkmark-outline" size={18} color={Colors.textGray} />}
+          />
+
+          <Button
+            title={loading ? 'Mendaftar...' : 'Daftar Sekarang'}
+            onPress={handleRegister}
+            loading={loading}
+            style={styles.registerBtn}
+          />
+        </View>
+
+        {/* ── Footer ────────────── */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Sudah punya akun? </Text>
+          <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
+            <Text style={styles.footerLink}>Masuk</Text>
           </TouchableOpacity>
-
-          {/* ── Header ────────────────────── */}
-          <View style={styles.header}>
-            <View style={styles.logoWrap}>
-              <Text style={styles.logoIcon}>🍽️</Text>
-            </View>
-            <Text style={styles.title}>Buat Akun Baru</Text>
-            <Text style={styles.subtitle}>Daftar dan nikmati kemudahan pesan makanan</Text>
-          </View>
-
-          {/* ── Form ──────────────────────── */}
-          <View style={styles.card}>
-            {/* Nama */}
-            <InputField
-              label="Nama Lengkap"
-              value={name}
-              onChangeText={(v) => { setName(v); setErrors(e => ({ ...e, name: '' })); }}
-              placeholder="Contoh: Nasuha Erza"
-              autoCapitalize="words"
-              autoComplete="name"
-              textContentType="name"
-              returnKeyType="next"
-              onSubmitEditing={() => emailRef.current?.focus()}
-              blurOnSubmit={false}
-              error={errors.name}
-              leftIcon={<Ionicons name="person-outline" size={18} color={Colors.textGray} />}
-            />
-
-            {/* Email */}
-            <InputField
-              inputRef={emailRef}
-              label="Email"
-              value={email}
-              onChangeText={(v) => { setEmail(v); setErrors(e => ({ ...e, email: '' })); }}
-              placeholder="contoh@email.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              textContentType="emailAddress"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-              blurOnSubmit={false}
-              error={errors.email}
-              leftIcon={<Ionicons name="mail-outline" size={18} color={Colors.textGray} />}
-            />
-
-            {/* Password */}
-            <InputField
-              inputRef={passwordRef}
-              label="Password"
-              value={password}
-              onChangeText={(v) => { setPassword(v); setErrors(e => ({ ...e, password: '' })); }}
-              placeholder="Minimal 6 karakter"
-              secureTextEntry
-              autoComplete="new-password"
-              textContentType="newPassword"
-              returnKeyType="next"
-              onSubmitEditing={() => confirmRef.current?.focus()}
-              blurOnSubmit={false}
-              error={errors.password}
-              leftIcon={<Ionicons name="lock-closed-outline" size={18} color={Colors.textGray} />}
-            />
-
-            {/* Konfirmasi Password */}
-            <InputField
-              inputRef={confirmRef}
-              label="Konfirmasi Password"
-              value={confirm}
-              onChangeText={(v) => { setConfirm(v); setErrors(e => ({ ...e, confirm: '' })); }}
-              placeholder="Ulangi password"
-              secureTextEntry
-              autoComplete="new-password"
-              textContentType="newPassword"
-              returnKeyType="done"
-              onSubmitEditing={handleRegister}
-              error={errors.confirm}
-              leftIcon={<Ionicons name="shield-checkmark-outline" size={18} color={Colors.textGray} />}
-            />
-
-            <Button
-              title={loading ? 'Mendaftar...' : 'Daftar Sekarang'}
-              onPress={handleRegister}
-              loading={loading}
-              style={styles.registerBtn}
-            />
-          </View>
-
-          {/* ── Footer ────────────────────── */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Sudah punya akun? </Text>
-            <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
-              <Text style={styles.footerLink}>Masuk</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </TouchableWithoutFeedback>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -208,7 +201,7 @@ const styles = StyleSheet.create({
   },
   backText: { fontSize: 14, color: Colors.secondary, fontWeight: '600' },
 
-  header:   { alignItems: 'center', marginBottom: 28 },
+  header:  { alignItems: 'center', marginBottom: 28 },
   logoWrap: {
     width: 72, height: 72, borderRadius: 22,
     backgroundColor: Colors.primaryLight,

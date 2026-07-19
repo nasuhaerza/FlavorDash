@@ -1,6 +1,6 @@
 # 🍽️ FlavorDash
 
-Aplikasi mobile katalog makanan modern dibangun dengan **React Native (Expo SDK 54)** menggunakan **Expo Router**, **Context API**, **Axios**, **JWT Authentication**, **Camera**, dan **Maps**.
+Aplikasi mobile katalog makanan modern dibangun dengan **React Native (Expo SDK 54)** menggunakan **Expo Router**, **Context API**, **Axios**, **JWT Authentication**, **Supabase**, **Camera**, dan **Maps**.
 
 ---
 
@@ -11,23 +11,65 @@ Aplikasi mobile katalog makanan modern dibangun dengan **React Native (Expo SDK 
 - npm atau yarn
 - [Expo Go](https://expo.dev/go) di perangkat Android/iOS
 
-### Instalasi
+### Instalasi & Jalankan
 
 ```bash
 git clone https://github.com/username/flavordash.git
 cd flavordash
 npm install
-```
-
-### Jalankan dengan Expo Go
-
-```bash
 npx expo start
 ```
 
-Scan QR code menggunakan aplikasi **Expo Go** di perangkat Anda.
+Scan QR code dengan **Expo Go**. Aplikasi langsung berjalan menggunakan data mock — **tidak perlu konfigurasi Supabase**.
 
-> **Catatan:** Aplikasi ini dirancang untuk berjalan langsung di Expo Go **tanpa konfigurasi tambahan**. Semua fitur native (Camera, Maps) kompatibel dengan Expo Go SDK 54.
+---
+
+## 🗄️ Integrasi Supabase (Opsional)
+
+### Setup
+
+1. Daftar di [supabase.com](https://supabase.com) → buat project baru
+2. Salin **Project URL** dan **anon key** dari `Settings → API`
+
+```bash
+cp .env.example .env
+# Edit .env:
+# EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+# EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+```
+
+3. Buka **Supabase → SQL Editor**, paste `database/schema.sql`, klik **Run**
+4. Restart: `npx expo start --clear`
+
+### Perilaku Fallback
+
+| Kondisi | Data |
+|---------|------|
+| `.env` belum diisi | Mock lokal (`mockData.js`) — berjalan langsung |
+| Supabase dikonfigurasi + online | Data real dari Supabase |
+| Supabase dikonfigurasi + offline | Fallback otomatis ke data lokal |
+
+### Arsitektur Supabase
+
+```
+services/
+├── supabase.js              ← Supabase client
+├── supabaseAuthService.js   ← Login/Register/Logout
+└── supabaseFoodService.js   ← CRUD foods & orders
+
+contexts/AuthContext.js      ← onAuthStateChange + persist session
+hooks/useFoodCatalog.js      ← Fetch foods dari Supabase
+hooks/useOrders.js           ← Fetch orders dari Supabase
+database/schema.sql          ← SQL migration siap pakai
+```
+
+### Tabel Database
+
+```
+foods       — katalog makanan (12 item seed data)
+orders      — pesanan per user
+order_items — item dalam setiap pesanan
+```
 
 ---
 
@@ -35,295 +77,147 @@ Scan QR code menggunakan aplikasi **Expo Go** di perangkat Anda.
 
 ```
 flavordash/
-├── app/                        # Expo Router — semua screen
-│   ├── (auth)/                 # Grup autentikasi (tidak ada tab bar)
-│   │   ├── _layout.js          # Auth layout + redirect jika sudah login
-│   │   ├── login.js            # Halaman Login
-│   │   └── register.js         # Halaman Registrasi
-│   ├── (tabs)/                 # Grup tab utama (bottom navigation)
-│   │   ├── _layout.js          # Tab layout + route protection
-│   │   ├── home.js             # Beranda — banner, rekomendasi, populer
-│   │   ├── catalog.js          # Katalog — FlatList + search + filter
-│   │   ├── orders.js           # Riwayat pesanan
-│   │   └── profile.js          # Profil pengguna
-│   ├── food/[id].js            # Detail makanan (dynamic route)
-│   ├── orders/[id].js          # Detail pesanan (protected + camera + maps)
-│   ├── cart/index.js           # Keranjang belanja (modal)
-│   ├── camera/index.js         # 📷 Kamera bukti pesanan
-│   ├── maps/index.js           # 🗺️ Peta lokasi restoran
-│   ├── _layout.js              # Root layout + providers
-│   └── index.js                # Entry redirect
+├── app/
+│   ├── (auth)/login.js        # Login
+│   ├── (auth)/register.js     # Register
+│   ├── (tabs)/home.js         # Beranda
+│   ├── (tabs)/catalog.js      # Katalog + search + filter
+│   ├── (tabs)/orders.js       # Riwayat pesanan (Supabase)
+│   ├── (tabs)/profile.js      # Profil + ganti avatar kamera
+│   ├── food/[id].js           # Detail makanan
+│   ├── orders/[id].js         # Detail pesanan + Camera + Maps
+│   ├── camera/index.js        # 📷 Kamera bukti pesanan
+│   ├── maps/index.js          # 🗺️ Peta lokasi restoran
+│   └── cart/index.js          # Keranjang belanja
 │
 ├── components/
-│   ├── cards/
-│   │   ├── FoodCard.js         # Kartu makanan (Flexbox horizontal)
-│   │   ├── FoodCardFeatured.js # Kartu rekomendasi (vertikal)
-│   │   └── OrderCard.js        # Kartu ringkasan pesanan
-│   ├── layout/
-│   │   ├── Header.js           # Header reusable dengan back button
-│   │   └── CategoryFilter.js   # Filter kategori horizontal scroll
-│   └── ui/
-│       ├── Badge.js            # Badge label (New, Popular, dll)
-│       ├── Button.js           # Tombol reusable (4 varian)
-│       ├── EmptyState.js       # Tampilan kosong / error
-│       ├── InputField.js       # Input dengan label, icon, validasi
-│       └── LoadingSpinner.js   # Loading overlay
+│   ├── cards/                 # FoodCard, FoodCardFeatured, OrderCard
+│   ├── layout/                # Header, CategoryFilter
+│   └── ui/                   # Badge, Button, EmptyState, InputField,
+│                              # LoadingSpinner, ProtectedRoute
 │
 ├── contexts/
-│   ├── AuthContext.js          # JWT auth state — token, user, login, logout
-│   └── CartContext.js          # Keranjang belanja state
+│   ├── AuthContext.js         # JWT + Supabase Auth state
+│   └── CartContext.js         # Keranjang belanja
 │
 ├── hooks/
-│   ├── useFoodCatalog.js       # Fetch katalog via Axios + loading/error/refresh
-│   └── useCamera.js            # Kamera — permission, capture, preview
+│   ├── useFoodCatalog.js      # Fetch katalog (Supabase/mock)
+│   ├── useOrders.js           # Fetch pesanan (Supabase/mock)
+│   ├── useCamera.js           # Camera permission + capture
+│   ├── useLocation.js         # GPS via expo-location
+│   ├── useDebounce.js         # Delay search input
+│   └── useNotification.js    # Toast in-app
 │
 ├── services/
-│   ├── apiService.js           # Axios instance + JWT interceptor
-│   ├── authService.js          # Mock API login/logout
-│   └── foodService.js          # Fetch katalog, search, detail
+│   ├── supabase.js            # Supabase client
+│   ├── supabaseAuthService.js # Auth service
+│   ├── supabaseFoodService.js # Food & Order service
+│   ├── apiService.js          # Axios instance
+│   └── foodService.js         # Legacy mock service
 │
 ├── constants/
-│   ├── Colors.js               # Palet warna aplikasi
-│   └── mockData.js             # Data dummy makanan, user, pesanan
+│   ├── Colors.js              # Palet warna
+│   ├── mockData.js            # Data dummy fallback
+│   └── api.js                 # Konfigurasi API
 │
-├── utils/
-│   ├── formatters.js           # Format harga, tanggal, kalkulasi
-│   ├── jwtHelper.js            # Generate, decode, validasi JWT
-│   └── polyfills.js            # Buffer polyfill untuk React Native
+├── database/
+│   └── schema.sql             # SQL migration Supabase
 │
-└── assets/images/              # Ikon dan splash screen
+└── utils/
+    ├── formatters.js          # Format harga, tanggal
+    ├── jwtHelper.js           # JWT encode/decode/validate
+    └── polyfills.js           # Buffer + URL polyfill
 ```
 
 ---
 
-## 📦 Dependencies Utama
+## 📦 Dependencies
 
-| Package | Versi | Fungsi |
-|---------|-------|--------|
-| `expo` | ~54.0.33 | Expo SDK |
-| `expo-router` | ~6.0.23 | File-based navigation |
-| `axios` | ^1.x | HTTP client untuk API |
-| `@react-native-async-storage/async-storage` | 2.2.0 | Simpan token JWT |
-| `expo-camera` | latest | Kamera untuk bukti pesanan |
-| `react-native-maps` | 1.20.1 | Peta lokasi restoran |
-| `expo-location` | ~19.0.8 | Lokasi GPS pengguna |
-| `react-native-gesture-handler` | ~2.28.0 | Gesture support |
-| `react-native-safe-area-context` | ~5.6.0 | Safe area insets |
-| `@expo/vector-icons` | ^14.0.4 | Ionicons & icon pack |
-| `buffer` | ^6.0.3 | Polyfill untuk JWT encoding |
+| Package | Fungsi |
+|---------|--------|
+| `expo ~54` | Expo SDK |
+| `expo-router ~6` | File-based navigation |
+| `@supabase/supabase-js` | Database & Auth |
+| `react-native-url-polyfill` | Polyfill URL untuk Supabase |
+| `axios` | HTTP client |
+| `@react-native-async-storage/async-storage` | Persist token |
+| `expo-camera` | Kamera bukti pesanan |
+| `react-native-maps` | Peta lokasi restoran |
+| `expo-location` | GPS pengguna |
+| `@expo/vector-icons` | Ionicons |
 
 ---
 
 ## 🔐 JWT Authentication
 
-### Cara Kerja
+### Dua Mode
 
-```
-Login → Mock API → JWT Token → AsyncStorage → Auth Context
-                                                    ↓
-                                    Semua screen bisa cek isAuthenticated
-```
+**Mode Mock (default — tanpa Supabase):**
+- Login → `authService.signIn()` → validasi dari `MOCK_USERS`
+- Token di-generate lokal, disimpan di `AsyncStorage`
+- Token berlaku 2 jam
 
-1. User login dengan email + password
-2. `authService.loginUser()` memverifikasi credentials dari `MOCK_USERS`
-3. JWT token di-generate dengan payload `{ sub, name, email, avatar, exp }`
-4. Token disimpan di `AsyncStorage` dengan key `@flavordash_token`
-5. `AuthContext` menyediakan `isAuthenticated`, `user`, `login`, `logout`
-6. Setiap request Axios otomatis menyertakan `Authorization: Bearer <token>`
+**Mode Supabase:**
+- Login → `supabase.auth.signInWithPassword()`
+- Session di-manage otomatis oleh Supabase SDK
+- `onAuthStateChange` listener untuk refresh token
 
-### Struktur JWT
+### Akun Login Dummy
 
-```
-Header.Payload.Signature
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
-.eyJzdWIiOiJ1c3JfMDAxIiwibmFtZSI6IlVzZXIiLCJleHAiOjE3MjA0MzIwMDB9
-.signature
-```
-
-### Route Protection
-
-- **`/(tabs)/_layout.js`** — redirect ke login jika `!isAuthenticated`
-- **`/orders/[id]`** — cek token valid, tampilkan alert jika expired
-- **`/(auth)/_layout.js`** — redirect ke home jika sudah login
-
----
-
-## 🔑 Akun Login Dummy
-
-| Role | Email | Password |
-|------|-------|----------|
-| User | `user@flavordash.com` | `password123` |
-| Admin | `admin@flavordash.com` | `admin123` |
+| Email | Password | Mode |
+|-------|----------|------|
+| `user@flavordash.com` | `password123` | Mock & Supabase |
+| `admin@flavordash.com` | `admin123` | Mock saja |
 
 ---
 
 ## 📷 Fitur Camera
 
-### Implementasi
-
-File: `app/camera/index.js` + `hooks/useCamera.js`
-
-**Flow penggunaan:**
-
-```
-Detail Pesanan → Tap "Foto Bukti" → Request Permission
-                                          ↓
-                                   Permission Granted?
-                                   ├── Ya → Buka CameraView
-                                   └── Tidak → Tampilkan UI izin
-                                          ↓
-                               Tap Shutter → takePictureAsync()
-                                          ↓
-                               Preview Foto → "Gunakan" / "Ulangi"
-```
-
-**Permission handling:**
-- iOS: `NSCameraUsageDescription` di `app.json`
-- Android: `CAMERA` permission di `app.json`
-- UI fallback jika permission ditolak dengan tombol request ulang
+- **Screen**: `app/camera/index.js`
+- **Hook**: `hooks/useCamera.js`
+- **Permission**: request otomatis sebelum kamera terbuka
+- **Flow**: Detail Pesanan → Tap "Foto Bukti" → Kamera → Preview → Konfirmasi
+- **Profile**: tap avatar untuk ganti foto via kamera (in-screen camera)
 
 ---
 
 ## 🗺️ Fitur Maps
 
-### Implementasi
-
-File: `app/maps/index.js`
-
-**Fitur:**
-- Tampilkan peta dengan `react-native-maps`
-- Marker lokasi restoran FlavorDash (3 cabang)
-- Marker tujuan pengiriman (dari params pesanan)
-- Callout popup berisi nama & alamat restoran
-- Legend warna marker
-- Koordinat default: Monas, Jakarta Pusat (-6.1754, 106.8272)
-
-**Cara membuka dari pesanan:**
-```
-Detail Pesanan → Tap "Lihat Peta" → router.push('/maps', { lat, lng, name, address })
-```
-
-**Koordinat Restoran:**
-| Cabang | Koordinat |
-|--------|-----------|
-| Kitchen Pusat | -6.1754, 106.8272 |
-| Cabang Selatan | -6.2088, 106.8456 |
-| Cabang Barat | -6.1945, 106.7891 |
-
----
-
-## 🌐 Konfigurasi Mock API
-
-Aplikasi menggunakan **Mock API** berbasis data lokal dengan simulasi network delay.
-
-### Base URL
-```
-https://jsonplaceholder.typicode.com  (untuk health check)
-```
-
-### Flow Axios
-```
-useFoodCatalog() → foodService.fetchFoodCatalog()
-    ↓
-    Simulasi delay 500ms
-    ↓
-    Return FOOD_ITEMS dari mockData.js
-    ↓
-    Jika gagal → fallback ke data lokal
-```
-
-### Mengganti ke API Real
-
-Edit `services/apiService.js`:
-```js
-export const BASE_URL = 'https://api.flavordash.com/v1';
-```
-
-Edit `services/foodService.js`:
-```js
-// Ganti fungsi fetchFoodCatalog:
-const response = await api.get('/foods', { signal });
-return { data: response.data, total: response.data.length, source: 'api' };
-```
-
----
-
-## 📱 Fitur Responsif
-
-- Menggunakan `flex`, `%`, `aspectRatio` — tidak ada pixel tetap
-- `Dimensions.get('window')` untuk lebar dinamis
-- `SafeAreaView` / `useSafeAreaInsets` untuk notch & navigation bar
-- `Platform.OS` untuk perbedaan iOS/Android
-- Banner width: `width - 32` (selalu muat di semua layar)
-- FoodCard image: `width: '32%'` dengan `aspectRatio: 0.85`
-
----
-
-## 🏗️ Arsitektur
-
-```
-┌─────────────────────────────────────┐
-│          Expo Router (app/)          │  ← Navigasi + Screens
-├─────────────────────────────────────┤
-│     Context API (AuthContext,        │  ← Global State
-│     CartContext)                     │
-├─────────────────────────────────────┤
-│     Custom Hooks (useFoodCatalog,    │  ← Business Logic
-│     useCamera)                       │
-├─────────────────────────────────────┤
-│     Services (apiService,            │  ← Data Layer (Axios)
-│     foodService, authService)        │
-├─────────────────────────────────────┤
-│     Constants + Utils                │  ← Shared Helpers
-└─────────────────────────────────────┘
-```
+- **Screen**: `app/maps/index.js`
+- **Hook**: `hooks/useLocation.js`
+- **Markers**: lokasi restoran FlavorDash (3 cabang Jakarta)
+- **FAB**: tombol "Lokasi Saya" via `expo-location`
+- **Callout**: popup nama & alamat restoran
+- **Flow**: Detail Pesanan → Tap "Lihat Peta" → Maps dengan marker tujuan
 
 ---
 
 ## 🔄 Pull-to-Refresh
 
-Tersedia di:
-- **Home** (`app/(tabs)/home.js`) — `RefreshControl` di ScrollView
-- **Catalog** (`app/(tabs)/catalog.js`) — `onRefresh` di FlatList
-
-Kedua menggunakan `useFoodCatalog().refresh()` yang:
-1. Abort request sebelumnya
-2. Set `refreshing: true`
-3. Re-fetch data
-4. Handle error dengan fallback lokal
-
----
-
-## 🛠️ Git Setup
-
-```bash
-git init
-git add .
-git commit -m "feat: initial FlavorDash app with Camera, Maps, JWT, Axios"
-git remote add origin https://github.com/username/flavordash.git
-git push -u origin main
-```
-
-### .gitignore sudah mencakup:
-- `node_modules/`
-- `.expo/`
-- `*.log`
-- `.env`
+- **Home**: `RefreshControl` di ScrollView
+- **Catalog**: `onRefresh` di FlatList
+- **Orders**: `onRefresh` di FlatList
+- Semua menggunakan hook `refresh()` yang abort request sebelumnya
 
 ---
 
 ## 📋 Changelog
 
-### v1.0.0
+### v2.0.0 — Supabase Integration
+- ✅ Supabase Auth (email/password)
+- ✅ Supabase Database (foods, orders, order_items)
+- ✅ Row Level Security
+- ✅ Fallback otomatis ke mock data
+- ✅ `onAuthStateChange` untuk session management
+
+### v1.0.0 — Initial Release
 - ✅ Katalog makanan dengan FlatList responsif
-- ✅ JWT Authentication (stateless, AsyncStorage)
-- ✅ Route Protection (Expo Router)
+- ✅ JWT Authentication stateless
 - ✅ Camera — foto bukti penerimaan pesanan
 - ✅ Maps — peta lokasi restoran
 - ✅ Axios + custom hook useFoodCatalog
-- ✅ Pull-to-refresh + search + filter kategori
+- ✅ Pull-to-refresh + search debounce + filter
 - ✅ Cart management (Context API)
-- ✅ Clean Architecture + reusable components
 
 ---
 

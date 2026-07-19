@@ -2,13 +2,15 @@
  * app/food/[id].js
  * Halaman Detail Makanan — Dynamic Route berdasarkan ID
  *
- * Update: pakai useNotification (toast) menggantikan Alert untuk "Tambah ke Cart"
+ * Data diambil dari Supabase via fetchFoodById (fallback ke mockData).
+ * Toast notification via useNotification menggantikan Alert.
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Dimensions,
     Image,
     ScrollView,
@@ -22,32 +24,59 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Colors from '../../constants/Colors';
-import { FOOD_ITEMS } from '../../constants/mockData';
 import { useCart } from '../../contexts/CartContext';
 import { useNotification } from '../../hooks/useNotification';
+import { fetchFoodById } from '../../services/supabaseFoodService';
 import { formatPrice } from '../../utils/formatters';
 
 const { width } = Dimensions.get('window');
 
 export default function FoodDetailScreen() {
-  const { id } = useLocalSearchParams();
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { id }  = useLocalSearchParams();
+  const router  = useRouter();
+  const insets  = useSafeAreaInsets();
   const { addToCart, cart } = useCart();
   const { notify, NotificationView } = useNotification();
 
-  // Cari item berdasarkan ID — harus SEBELUM useState yang bergantung pada item
-  const item = FOOD_ITEMS.find((f) => f.id === String(id));
-
-  const [qty,      setQty]      = useState(1);
+  const [item,     setItem]     = useState(null);
+  const [loading,  setLoading]  = useState(true);
   const [imgError, setImgError] = useState(false);
-  // ✅ isFav mengambil nilai awal dari item (bukan item? yang undefined)
-  const [isFav, setIsFav] = useState(item?.isFavorite ?? false);
+  const [qty,      setQty]      = useState(1);
+  const [isFav,    setIsFav]    = useState(false);
 
-  // Cek apakah sudah ada di cart
+  // ── Fetch dari Supabase ────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchFoodById(id)
+      .then((data) => {
+        if (!cancelled) {
+          setItem(data);
+          setIsFav(data?.isFavorite ?? false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setItem(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  // Cek cart
   const cartItem = cart.find((c) => c.id === String(id));
 
-  // ── Not found state ─────────────────────────────────
+  // ── Loading ────────────────────────────────────────
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  // ── Not found ──────────────────────────────────────
   if (!item) {
     return (
       <View style={styles.notFound}>
@@ -63,25 +92,16 @@ export default function FoodDetailScreen() {
 
   // ── Tambah ke cart ─────────────────────────────────
   function handleAddToCart() {
-    for (let i = 0; i < qty; i++) {
-      addToCart(item);
-    }
-    // Toast notification — lebih ringan daripada Alert
+    for (let i = 0; i < qty; i++) addToCart(item);
     notify(`${qty}x ${item.name} ditambahkan ke keranjang 🛒`, 'success');
   }
 
-  // ── Toggle favorit ──────────────────────────────────
   function handleToggleFav() {
-    setIsFav((prev) => {
-      const next = !prev;
-      // Pada produksi: simpan ke context/backend di sini
-      return next;
-    });
+    setIsFav((v) => !v);
   }
 
   return (
     <View style={styles.root}>
-      {/* Toast Notification */}
       <NotificationView />
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -91,17 +111,11 @@ export default function FoodDetailScreen() {
         {/* ── Gambar Hero ─────────────────────── */}
         <View style={styles.imageContainer}>
           <Image
-            source={
-              imgError
-                ? require('../../assets/images/icon.png')
-                : { uri: item.image }
-            }
+            source={imgError ? require('../../assets/images/icon.png') : { uri: item.image }}
             style={styles.image}
             resizeMode="cover"
             onError={() => setImgError(true)}
           />
-
-          {/* ✅ Back Button */}
           <TouchableOpacity
             style={[styles.backBtn, { top: insets.top + 8 }]}
             onPress={() => router.back()}
@@ -109,29 +123,21 @@ export default function FoodDetailScreen() {
           >
             <Ionicons name="chevron-back" size={22} color={Colors.secondary} />
           </TouchableOpacity>
-
-          {/* Cart shortcut di kanan atas */}
           <TouchableOpacity
             style={[styles.cartBtn, { top: insets.top + 8 }]}
             onPress={() => router.push('/cart')}
             activeOpacity={0.85}
           >
             <Ionicons name="cart-outline" size={20} color={Colors.secondary} />
-            {cartItem && (
-              <View style={styles.cartDot} />
-            )}
+            {cartItem && <View style={styles.cartDot} />}
           </TouchableOpacity>
-
           {item.badge && (
-            <View style={styles.heroBadge}>
-              <Badge type={item.badge} />
-            </View>
+            <View style={styles.heroBadge}><Badge type={item.badge} /></View>
           )}
         </View>
 
         {/* ── Info ─────────────────────────── */}
         <View style={styles.infoCard}>
-          {/* Nama & ✅ Tombol Favorit */}
           <View style={styles.nameRow}>
             <Text style={styles.name}>{item.name}</Text>
             <TouchableOpacity
@@ -147,7 +153,6 @@ export default function FoodDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Rating & Meta */}
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <Ionicons name="star" size={14} color={Colors.star} />
@@ -165,23 +170,19 @@ export default function FoodDetailScreen() {
             </View>
           </View>
 
-          {/* Harga */}
           <Text style={styles.price}>{formatPrice(item.price)}</Text>
 
-          {/* Deskripsi */}
           <Text style={styles.sectionTitle}>Deskripsi</Text>
           <Text style={styles.description}>{item.description}</Text>
 
-          {/* Tags */}
           <View style={styles.tagsRow}>
-            {item.tags.map((tag) => (
+            {(item.tags ?? []).map((tag) => (
               <View key={tag} style={styles.tag}>
                 <Text style={styles.tagText}>#{tag}</Text>
               </View>
             ))}
           </View>
 
-          {/* Info Nutrisi */}
           <Text style={styles.sectionTitle}>Info Nutrisi</Text>
           <View style={styles.nutritionRow}>
             {[
@@ -198,7 +199,6 @@ export default function FoodDetailScreen() {
             ))}
           </View>
 
-          {/* Sudah ada di cart → shortcut ke keranjang */}
           {cartItem && (
             <TouchableOpacity
               style={styles.cartInfo}
@@ -214,28 +214,17 @@ export default function FoodDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* ── Bottom Action Bar ─────────────── */}
+      {/* ── Bottom Bar ─────────────────────── */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
-        {/* Quantity Selector */}
         <View style={styles.qtySelector}>
-          <TouchableOpacity
-            style={styles.qtyBtn}
-            onPress={() => setQty((q) => Math.max(1, q - 1))}
-            activeOpacity={0.75}
-          >
+          <TouchableOpacity style={styles.qtyBtn} onPress={() => setQty((q) => Math.max(1, q - 1))}>
             <Ionicons name="remove" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.qtyValue}>{qty}</Text>
-          <TouchableOpacity
-            style={styles.qtyBtn}
-            onPress={() => setQty((q) => q + 1)}
-            activeOpacity={0.75}
-          >
+          <TouchableOpacity style={styles.qtyBtn} onPress={() => setQty((q) => q + 1)}>
             <Ionicons name="add" size={18} color={Colors.primary} />
           </TouchableOpacity>
         </View>
-
-        {/* ✅ Tambah ke Cart */}
         <Button
           title={`Tambah — ${formatPrice(item.price * qty)}`}
           onPress={handleAddToCart}
@@ -247,141 +236,85 @@ export default function FoodDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
+  root:   { flex: 1, backgroundColor: Colors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  // Image
-  imageContainer: {
-    width,
-    aspectRatio: 1.3,
-    backgroundColor: Colors.border,
-  },
-  image: { width: '100%', height: '100%' },
-
+  imageContainer: { width, aspectRatio: 1.3, backgroundColor: Colors.border },
+  image:          { width: '100%', height: '100%' },
   backBtn: {
-    position: 'absolute',
-    left: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    position: 'absolute', left: 16,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15, shadowRadius: 6, elevation: 4,
   },
   cartBtn: {
-    position: 'absolute',
-    right: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    position: 'absolute', right: 16,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15, shadowRadius: 6, elevation: 4,
   },
   cartDot: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    position: 'absolute', top: 6, right: 6,
+    width: 8, height: 8, borderRadius: 4,
     backgroundColor: Colors.danger,
   },
   heroBadge: { position: 'absolute', bottom: 16, left: 16 },
 
-  // Info card
   infoCard: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    marginTop: -20,
-    padding: 24,
-    paddingBottom: 120,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    marginTop: -20, padding: 24, paddingBottom: 120,
   },
   nameRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+    flexDirection: 'row', alignItems: 'flex-start',
+    justifyContent: 'space-between', marginBottom: 10,
   },
   name: {
-    flex: 1,
-    fontSize: 22,
-    fontWeight: '900',
-    color: Colors.secondary,
-    lineHeight: 28,
-    marginRight: 12,
+    flex: 1, fontSize: 22, fontWeight: '900',
+    color: Colors.secondary, lineHeight: 28, marginRight: 12,
   },
   metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    flexWrap: 'wrap',
-    gap: 4,
+    flexDirection: 'row', alignItems: 'center',
+    marginBottom: 14, flexWrap: 'wrap', gap: 4,
   },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaValue: { fontSize: 13, fontWeight: '600', color: Colors.secondary },
   metaLabel: { fontSize: 12, color: Colors.textGray },
-  metaDot: {
-    width: 4, height: 4, borderRadius: 2,
-    backgroundColor: Colors.textLight,
-    marginHorizontal: 4,
-  },
-  price: {
-    fontSize: 26, fontWeight: '900',
-    color: Colors.primary, marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 15, fontWeight: '700',
-    color: Colors.secondary, marginBottom: 8,
-  },
-  description: {
-    fontSize: 14, color: Colors.textGray,
-    lineHeight: 22, marginBottom: 16,
-  },
+  metaDot:   { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.textLight, marginHorizontal: 4 },
+  price:       { fontSize: 26, fontWeight: '900', color: Colors.primary, marginBottom: 20 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.secondary, marginBottom: 8 },
+  description: { fontSize: 14, color: Colors.textGray, lineHeight: 22, marginBottom: 16 },
 
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
-  tag: {
-    backgroundColor: Colors.primaryLight,
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
-  },
+  tag:     { backgroundColor: Colors.primaryLight, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   tagText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
 
   nutritionRow: {
-    flexDirection: 'row',
-    backgroundColor: Colors.background,
+    flexDirection: 'row', backgroundColor: Colors.background,
     borderRadius: 16, padding: 16, marginBottom: 20,
   },
-  nutriItem: { flex: 1, alignItems: 'center' },
+  nutriItem:  { flex: 1, alignItems: 'center' },
   nutriValue: { fontSize: 18, fontWeight: '800', color: Colors.secondary },
-  nutriUnit: { fontSize: 10, color: Colors.textGray },
+  nutriUnit:  { fontSize: 10, color: Colors.textGray },
   nutriLabel: { fontSize: 11, color: Colors.textGray, marginTop: 2, fontWeight: '500' },
 
   cartInfo: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: 10, padding: 10,
+    backgroundColor: Colors.primaryLight, borderRadius: 10, padding: 10,
   },
   cartInfoText: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
 
-  // Bottom bar
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: Colors.surface,
     paddingHorizontal: 20, paddingTop: 16,
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderTopWidth: 1, borderTopColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
+    shadowColor: '#000', shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.08, shadowRadius: 8, elevation: 10,
   },
   qtySelector: {
@@ -393,23 +326,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
   },
-  qtyValue: {
-    fontSize: 16, fontWeight: '800', color: Colors.secondary,
-    minWidth: 20, textAlign: 'center',
-  },
-  addBtn: { flex: 1 },
+  qtyValue: { fontSize: 16, fontWeight: '800', color: Colors.secondary, minWidth: 20, textAlign: 'center' },
+  addBtn:   { flex: 1 },
 
-  // Not found
-  notFound: {
-    flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32,
-  },
+  notFound:     { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   notFoundIcon: { fontSize: 52, marginBottom: 12 },
-  notFoundText: {
-    fontSize: 17, color: Colors.secondary,
-    fontWeight: '600', marginBottom: 16,
-  },
-  backLinkWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-  },
-  backLink: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
+  notFoundText: { fontSize: 17, color: Colors.secondary, fontWeight: '600', marginBottom: 16 },
+  backLinkWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  backLink:     { fontSize: 14, color: Colors.primary, fontWeight: '600' },
 });
