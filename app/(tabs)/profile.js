@@ -1,0 +1,445 @@
+/**
+ * app/(tabs)/profile.js
+ * Halaman Profil Pengguna
+ *
+ * Menampilkan info akun, menu navigasi, dan tombol logout.
+ * Logout menghapus JWT token dari AsyncStorage via AuthContext.
+ */
+
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import {
+    Alert,
+    Image,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import Colors from '../../constants/Colors';
+import { useAuth } from '../../contexts/AuthContext';
+import { formatDate } from '../../utils/formatters';
+import { getTokenRemainingTime } from '../../utils/jwtHelper';
+
+// Menu item list — route: string = navigasi, route: null = coming soon
+const MENU_ITEMS = [
+  { icon: 'receipt-outline',        label: 'Riwayat Pesanan',    route: '/(tabs)/orders', badge: null },
+  { icon: 'heart-outline',          label: 'Makanan Favorit',    route: 'favorite',       badge: null },
+  { icon: 'location-outline',       label: 'Alamat Tersimpan',   route: 'address',        badge: null },
+  { icon: 'card-outline',           label: 'Metode Pembayaran',  route: 'payment',        badge: 'Baru' },
+  { icon: 'settings-outline',       label: 'Pengaturan Akun',    route: 'settings',       badge: null },
+  { icon: 'help-circle-outline',    label: 'Bantuan & FAQ',      route: 'help',           badge: null },
+  { icon: 'shield-checkmark-outline', label: 'Privasi & Keamanan', route: 'privacy',      badge: null },
+];
+
+function MenuItem({ icon, label, route, badge, onPress }) {
+  return (
+    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.8}>
+      <View style={styles.menuLeft}>
+        <View style={styles.menuIconWrap}>
+          <Ionicons name={icon} size={20} color={Colors.primary} />
+        </View>
+        <Text style={styles.menuLabel}>{label}</Text>
+      </View>
+      <View style={styles.menuRight}>
+        {badge && (
+          <View style={styles.menuBadge}>
+            <Text style={styles.menuBadgeText}>{badge}</Text>
+          </View>
+        )}
+        <Ionicons name="chevron-forward" size={18} color={Colors.textLight} />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export default function ProfileScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user, logout, token, isAuthenticated } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const paddingTop = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : insets.top + 8;
+
+  // Sisa waktu token (untuk demo JWT)
+  const remainingSeconds = token ? getTokenRemainingTime(token) : 0;
+  const remainingMinutes = Math.floor(remainingSeconds / 60);
+  const remainingHours = Math.floor(remainingMinutes / 60);
+  const tokenExpDisplay =
+    remainingSeconds <= 0
+      ? 'Kedaluwarsa'
+      : remainingHours > 0
+      ? `${remainingHours} jam ${remainingMinutes % 60} menit`
+      : `${remainingMinutes} menit`;
+
+  function handleLogout() {
+    Alert.alert('Keluar', 'Yakin ingin keluar dari akun?', [
+      { text: 'Batal', style: 'cancel' },
+      {
+        text: 'Keluar',
+        style: 'destructive',
+        onPress: async () => {
+          setLoggingOut(true);
+          await logout();
+          router.replace('/(auth)/login');
+        },
+      },
+    ]);
+  }
+
+  return (
+    <View style={styles.root}>
+      {/* ── Header ───────────────────────────────── */}
+      <View style={[styles.header, { paddingTop }]}>
+        <Text style={styles.title}>Profil Saya</Text>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* ── User Info Card ───────────────────────── */}
+        <View style={styles.profileCard}>
+          <Image
+            source={{ uri: user?.avatar ?? 'https://i.pravatar.cc/150?img=8' }}
+            style={styles.avatar}
+          />
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{user?.name ?? '-'}</Text>
+            <Text style={styles.profileEmail}>{user?.email ?? '-'}</Text>
+            <View style={styles.memberBadge}>
+              <Ionicons name="star" size={11} color={Colors.star} />
+              <Text style={styles.memberText}>Member sejak {formatDate(user?.memberSince ?? '2024-01-01')}</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() =>
+                Alert.alert(
+                  'Edit Profil',
+                  'Fitur edit profil sedang dalam pengembangan.',
+                  [{ text: 'OK' }]
+                )
+              }
+            >
+              <Ionicons name="pencil" size={16} color={Colors.primary} />
+            </TouchableOpacity>
+        </View>
+
+        {/* ── JWT Info Box (Demo) ──────────────────── */}
+        <View style={styles.jwtBox}>
+          <View style={styles.jwtHeader}>
+            <Ionicons name="key-outline" size={16} color={Colors.primary} />
+            <Text style={styles.jwtTitle}>Info Session JWT</Text>
+          </View>
+          <View style={styles.jwtRow}>
+            <Text style={styles.jwtLabel}>Status Token</Text>
+            <View style={[styles.jwtStatus, { backgroundColor: isAuthenticated ? Colors.success + '20' : Colors.danger + '20' }]}>
+              <Text style={[styles.jwtStatusText, { color: isAuthenticated ? Colors.success : Colors.danger }]}>
+                {isAuthenticated ? '✓ Valid' : '✗ Tidak Valid'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.jwtRow}>
+            <Text style={styles.jwtLabel}>Berlaku hingga</Text>
+            <Text style={styles.jwtValue}>{tokenExpDisplay}</Text>
+          </View>
+          <Text style={styles.jwtNote}>
+            * Token tersimpan di AsyncStorage. Sesi terjaga meski app ditutup.
+          </Text>
+        </View>
+
+        {/* ── Stats Row ───────────────────────────── */}
+        <View style={styles.statsRow}>
+          {[
+            { label: 'Pesanan', value: '3', icon: '📦' },
+            { label: 'Favorit', value: '4', icon: '❤️' },
+            { label: 'Poin', value: '240', icon: '⭐' },
+          ].map((s) => (
+            <View key={s.label} style={styles.statItem}>
+              <Text style={styles.statIcon}>{s.icon}</Text>
+              <Text style={styles.statValue}>{s.value}</Text>
+              <Text style={styles.statLabel}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ── Menu ────────────────────────────────── */}
+        <View style={styles.menuSection}>
+          {MENU_ITEMS.map((item) => (
+            <MenuItem
+              key={item.label}
+              {...item}
+              onPress={() => {
+                // Route yang dimulai dengan '/' → navigasi nyata
+                if (item.route?.startsWith('/')) {
+                  router.push(item.route);
+                } else if (item.route) {
+                  // Route lain → coming soon
+                  Alert.alert(
+                    item.label,
+                    'Fitur ini sedang dalam pengembangan dan akan segera tersedia.',
+                    [{ text: 'OK' }]
+                  );
+                }
+              }}
+            />
+          ))}
+        </View>
+
+        {/* ── Logout Button ───────────────────────── */}
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={handleLogout}
+          disabled={loggingOut}
+        >
+          <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
+          <Text style={styles.logoutText}>
+            {loggingOut ? 'Keluar...' : 'Keluar dari Akun'}
+          </Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.secondary,
+  },
+
+  // Profile card
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    margin: 16,
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    borderColor: Colors.primary,
+  },
+  profileInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  profileName: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: Colors.secondary,
+  },
+  profileEmail: {
+    fontSize: 13,
+    color: Colors.textGray,
+    marginTop: 2,
+  },
+  memberBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 4,
+  },
+  memberText: {
+    fontSize: 11,
+    color: Colors.textGray,
+  },
+  editBtn: {
+    padding: 8,
+  },
+
+  // JWT box
+  jwtBox: {
+    backgroundColor: Colors.primaryLight,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  jwtHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  jwtTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  jwtRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  jwtLabel: {
+    fontSize: 12,
+    color: Colors.textGray,
+  },
+  jwtValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.secondary,
+  },
+  jwtStatus: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  jwtStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  jwtNote: {
+    fontSize: 10,
+    color: Colors.textGray,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+
+  // Stats
+  statsRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+  },
+  statIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.secondary,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: Colors.textGray,
+    marginTop: 2,
+  },
+
+  // Menu
+  menuSection: {
+    backgroundColor: Colors.surface,
+    marginHorizontal: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  menuLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.secondary,
+  },
+  menuRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  menuBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 20,
+  },
+  menuBadgeText: {
+    fontSize: 10,
+    color: Colors.white,
+    fontWeight: '700',
+  },
+
+  // Logout
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: Colors.danger + '15',
+    borderWidth: 1.5,
+    borderColor: Colors.danger + '30',
+    gap: 8,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.danger,
+  },
+});
