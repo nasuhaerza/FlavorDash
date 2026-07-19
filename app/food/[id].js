@@ -2,17 +2,13 @@
  * app/food/[id].js
  * Halaman Detail Makanan — Dynamic Route berdasarkan ID
  *
- * Perbaikan button:
- * - ❤️ Tombol favorit: toggle isFav state lokal (responsif, bukan statis)
- * - ➕ Tambah ke cart: tampilkan toast konfirmasi + shortcut ke cart
- * - ← Back button: router.back()
+ * Update: pakai useNotification (toast) menggantikan Alert untuk "Tambah ke Cart"
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    Alert,
     Dimensions,
     Image,
     ScrollView,
@@ -28,6 +24,7 @@ import Button from '../../components/ui/Button';
 import Colors from '../../constants/Colors';
 import { FOOD_ITEMS } from '../../constants/mockData';
 import { useCart } from '../../contexts/CartContext';
+import { useNotification } from '../../hooks/useNotification';
 import { formatPrice } from '../../utils/formatters';
 
 const { width } = Dimensions.get('window');
@@ -37,6 +34,7 @@ export default function FoodDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addToCart, cart } = useCart();
+  const { notify, NotificationView } = useNotification();
 
   // Cari item berdasarkan ID — harus SEBELUM useState yang bergantung pada item
   const item = FOOD_ITEMS.find((f) => f.id === String(id));
@@ -68,17 +66,8 @@ export default function FoodDetailScreen() {
     for (let i = 0; i < qty; i++) {
       addToCart(item);
     }
-    Alert.alert(
-      '✅ Ditambahkan ke Keranjang',
-      `${qty}x ${item.name} berhasil ditambahkan.`,
-      [
-        { text: 'Lanjut Belanja', style: 'cancel' },
-        {
-          text: 'Lihat Keranjang',
-          onPress: () => router.push('/cart'),
-        },
-      ]
-    );
+    // Toast notification — lebih ringan daripada Alert
+    notify(`${qty}x ${item.name} ditambahkan ke keranjang 🛒`, 'success');
   }
 
   // ── Toggle favorit ──────────────────────────────────
@@ -92,6 +81,8 @@ export default function FoodDetailScreen() {
 
   return (
     <View style={styles.root}>
+      {/* Toast Notification */}
+      <NotificationView />
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"

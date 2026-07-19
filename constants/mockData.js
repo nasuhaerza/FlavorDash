@@ -20,6 +20,7 @@ export const FOOD_ITEMS = [
     description: 'Nasi goreng dengan telur, ayam, sayur segar, dan bumbu rempah pilihan',
     price: 25000,
     category: 'main',
+    // Nasi goreng — foto akurat
     image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&q=80',
     rating: 4.8,
     reviewCount: 234,
@@ -35,6 +36,7 @@ export const FOOD_ITEMS = [
     description: 'Mie kenyal dengan ayam cincang, bakso sapi, dan kuah kaldu gurih',
     price: 22000,
     category: 'main',
+    // Mie dengan kuah — foto akurat
     image: 'https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=400&q=80',
     rating: 4.6,
     reviewCount: 187,
@@ -50,6 +52,7 @@ export const FOOD_ITEMS = [
     description: 'Ayam crispy geprek dengan sambal bawang pedas nampol dan lalapan segar',
     price: 28000,
     category: 'main',
+    // Ayam goreng — foto akurat
     image: 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?w=400&q=80',
     rating: 4.9,
     reviewCount: 312,
@@ -65,6 +68,7 @@ export const FOOD_ITEMS = [
     description: 'Sayuran segar rebus dengan saus kacang kental, kerupuk, dan lontong',
     price: 18000,
     category: 'healthy',
+    // Salad/sayuran segar — relevan untuk gado-gado
     image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&q=80',
     rating: 4.5,
     reviewCount: 98,
@@ -80,6 +84,7 @@ export const FOOD_ITEMS = [
     description: 'Pisang kepok goreng crispy dengan taburan gula halus dan keju parut',
     price: 12000,
     category: 'snack',
+    // Pisang goreng — foto akurat
     image: 'https://images.unsplash.com/photo-1587132137056-bfbf0166836e?w=400&q=80',
     rating: 4.4,
     reviewCount: 156,
@@ -95,6 +100,7 @@ export const FOOD_ITEMS = [
     description: 'Teh manis segar dengan es batu, pilihan teh pilihan premium',
     price: 8000,
     category: 'drink',
+    // Iced tea — foto akurat
     image: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&q=80',
     rating: 4.7,
     reviewCount: 421,
@@ -110,6 +116,7 @@ export const FOOD_ITEMS = [
     description: 'Alpukat segar blender dengan susu kental manis, es batu, dan sirup cokelat',
     price: 18000,
     category: 'drink',
+    // Avocado drink — foto akurat
     image: 'https://images.unsplash.com/photo-1623065422902-30a2d299bbe4?w=400&q=80',
     rating: 4.8,
     reviewCount: 178,
@@ -125,6 +132,7 @@ export const FOOD_ITEMS = [
     description: 'Martabak tebal lembut dengan isian cokelat, keju, dan kacang tanah',
     price: 35000,
     category: 'dessert',
+    // Pancake/martabak manis — relevan
     image: 'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=400&q=80',
     rating: 4.9,
     reviewCount: 267,
@@ -140,7 +148,8 @@ export const FOOD_ITEMS = [
     description: 'Soto ayam bening khas Lamongan dengan soun, telur, koya, dan sambal',
     price: 20000,
     category: 'main',
-    image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&q=80',
+    // Sup/soto dengan kuah bening — foto berbeda dari id 10
+    image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&q=80',
     rating: 4.7,
     reviewCount: 143,
     prepTime: '10 menit',
@@ -155,7 +164,8 @@ export const FOOD_ITEMS = [
     description: 'Campuran sayuran segar, quinoa, alpukat, tomat ceri dengan dressing lemon',
     price: 32000,
     category: 'healthy',
-    image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&q=80',
+    // Salad bowl segar — foto unik berbeda dari id 4
+    image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&q=80',
     rating: 4.6,
     reviewCount: 89,
     prepTime: '7 menit',
@@ -170,6 +180,7 @@ export const FOOD_ITEMS = [
     description: 'Cireng gurih renyah dengan cocolan bumbu rujak pedas asam segar',
     price: 10000,
     category: 'snack',
+    // Gorengan/snack — relevan
     image: 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?w=400&q=80',
     rating: 4.3,
     reviewCount: 112,
@@ -185,7 +196,8 @@ export const FOOD_ITEMS = [
     description: 'Gelato premium rasa matcha Jepang dengan taburan red bean dan mochi',
     price: 28000,
     category: 'dessert',
-    image: 'https://images.unsplash.com/photo-1567206563114-c179706a56b4?w=400&q=80',
+    // Matcha ice cream — foto akurat dan unik
+    image: 'https://images.unsplash.com/photo-1615478503562-ec2d8aa0e24e?w=400&q=80',
     rating: 4.8,
     reviewCount: 198,
     prepTime: '2 menit',

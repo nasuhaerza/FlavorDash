@@ -31,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import FoodCard from '../../components/cards/FoodCard';
 import FoodCardFeatured from '../../components/cards/FoodCardFeatured';
+import { SkeletonCard } from '../../components/ui/LoadingSpinner';
 import Colors from '../../constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
@@ -231,6 +232,16 @@ export default function HomeScreen() {
               <View style={styles.loadingSection}>
                 <ActivityIndicator size="large" color={Colors.primary} />
                 <Text style={styles.loadingText}>Memuat katalog...</Text>
+              </View>
+            )}
+
+            {/* Skeleton saat loading awal */}
+            {loading && data.length === 0 && (
+              <View style={styles.section}>
+                <View style={[styles.sectionHeader, { paddingHorizontal: 16, marginTop: 16 }]}>
+                  <Text style={styles.sectionTitle}>⏳ Memuat...</Text>
+                </View>
+                {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
               </View>
             )}
 

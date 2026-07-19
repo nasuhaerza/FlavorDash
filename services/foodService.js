@@ -7,11 +7,12 @@
  * 2. Jika gagal (offline/timeout), gunakan data lokal (mockData)
  */
 
+import { CACHE_TTL_MS } from '../constants/api';
 import { FOOD_ITEMS } from '../constants/mockData';
 import api from './apiService';
 
-const CACHE_KEY = '@flavordash_food_cache';
-const CACHE_TTL = 5 * 60 * 1000; // 5 menit
+// TTL dari constants — tidak lagi hardcoded
+const CACHE_TTL = CACHE_TTL_MS;
 
 // ── Ambil katalog makanan ─────────────────────────────────
 // Karena tidak ada real food API, kita simulasi delay + transform

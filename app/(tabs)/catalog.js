@@ -5,9 +5,10 @@
  * Fitur:
  * - Fetch data via Axios + custom hook useFoodCatalog
  * - Pull-to-refresh
- * - Search bar dengan debounce
+ * - Search dengan useDebounce (400ms delay, tidak re-filter tiap ketikan)
  * - Filter kategori + sort
- * - Loading skeleton + error state
+ * - Skeleton loading saat data pertama kali dimuat
+ * - EmptyState untuk hasil kosong / error
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,7 @@ import { useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
+    Keyboard,
     Platform,
     StatusBar,
     StyleSheet,
@@ -29,8 +31,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FoodCard from '../../components/cards/FoodCard';
 import CategoryFilter from '../../components/layout/CategoryFilter';
 import EmptyState from '../../components/ui/EmptyState';
+import { SkeletonCard } from '../../components/ui/LoadingSpinner';
 import Colors from '../../constants/Colors';
 import { useCart } from '../../contexts/CartContext';
+import { useDebounce } from '../../hooks/useDebounce';
 import { useFoodCatalog } from '../../hooks/useFoodCatalog';
 
 const SORT_OPTIONS = [
@@ -44,20 +48,22 @@ export default function CatalogScreen() {
   const insets = useSafeAreaInsets();
   const { addToCart } = useCart();
 
-  // ── Data dari Axios ─────────────────────────────────
+  // ── Data via Axios ──────────────────────────────────
   const { data, loading, refreshing, error, source, refresh } = useFoodCatalog();
 
   const [search,           setSearch]           = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy,           setSortBy]           = useState('rating');
 
-  // ── Filter + Sort ────────────────────────────────────
+  // Debounce search — filter tidak berjalan tiap keystroke
+  const debouncedSearch = useDebounce(search, 400);
+
+  // ── Filter + Sort dengan debouncedSearch ────────────
   const displayItems = useMemo(() => {
     let items = data;
 
-    // Search filter
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
       items = items.filter(
         (f) =>
           f.name.toLowerCase().includes(q) ||
@@ -66,26 +72,24 @@ export default function CatalogScreen() {
       );
     }
 
-    // Category filter
     if (selectedCategory !== 'all') {
       items = items.filter((f) => f.category === selectedCategory);
     }
 
-    // Sort
     return [...items].sort((a, b) => {
       if (sortBy === 'rating')     return b.rating - a.rating;
       if (sortBy === 'price_asc')  return a.price - b.price;
       if (sortBy === 'price_desc') return b.price - a.price;
       return 0;
     });
-  }, [data, search, selectedCategory, sortBy]);
+  }, [data, debouncedSearch, selectedCategory, sortBy]);
 
   const paddingTop =
     Platform.OS === 'android'
       ? (StatusBar.currentHeight ?? 0) + 8
       : insets.top + 8;
 
-  // ── Header FlatList ──────────────────────────────────
+  // ── List Header ─────────────────────────────────────
   const ListHeader = (
     <View>
       {/* Search bar */}
@@ -98,12 +102,17 @@ export default function CatalogScreen() {
           value={search}
           onChangeText={setSearch}
           returnKeyType="search"
-          autoCapitalize="none"
+          onSubmitEditing={Keyboard.dismiss}
+          blurOnSubmit
           autoCorrect={false}
+          autoCapitalize="none"
           clearButtonMode="while-editing"
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
+          <TouchableOpacity
+            onPress={() => { setSearch(''); Keyboard.dismiss(); }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Ionicons name="close-circle" size={18} color={Colors.textGray} />
           </TouchableOpacity>
         )}
@@ -131,11 +140,22 @@ export default function CatalogScreen() {
         })}
       </View>
 
-      {/* Source indicator */}
+      {/* Offline / API info */}
       {source === 'local' && (
         <View style={styles.offlineBanner}>
           <Ionicons name="cloud-offline-outline" size={14} color={Colors.warning} />
           <Text style={styles.offlineText}>Mode offline — data dari cache lokal</Text>
+        </View>
+      )}
+
+      {/* Jumlah hasil saat search aktif */}
+      {debouncedSearch.trim().length > 0 && (
+        <View style={styles.searchResultInfo}>
+          <Text style={styles.searchResultText}>
+            {displayItems.length > 0
+              ? `${displayItems.length} hasil untuk "${debouncedSearch}"`
+              : `Tidak ada hasil untuk "${debouncedSearch}"`}
+          </Text>
         </View>
       )}
     </View>
@@ -154,7 +174,7 @@ export default function CatalogScreen() {
         )}
       </View>
 
-      {/* ── Error State ─────────────────────── */}
+      {/* ── Error state ─────────────────────── */}
       {error && !loading && (
         <EmptyState
           icon="cloud-offline-outline"
@@ -165,16 +185,17 @@ export default function CatalogScreen() {
         />
       )}
 
-      {/* ── Loading awal ────────────────────── */}
+      {/* ── Skeleton loading (pertama kali) ─── */}
       {loading && !refreshing && data.length === 0 && (
-        <View style={styles.loadingCenter}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Memuat katalog...</Text>
+        <View style={styles.skeletonContainer}>
+          {[1, 2, 3, 4].map((i) => (
+            <SkeletonCard key={i} />
+          ))}
         </View>
       )}
 
       {/* ── FlatList ────────────────────────── */}
-      {!loading || data.length > 0 ? (
+      {(!loading || data.length > 0) && !error && (
         <FlatList
           data={displayItems}
           keyExtractor={(item) => item.id}
@@ -192,12 +213,12 @@ export default function CatalogScreen() {
                 emoji="🍽️"
                 title="Tidak Ada Menu"
                 message={
-                  search
-                    ? `Tidak ada menu untuk "${search}"`
+                  debouncedSearch
+                    ? `Tidak ada menu untuk "${debouncedSearch}"`
                     : 'Tidak ada menu di kategori ini'
                 }
-                actionLabel={search ? 'Hapus Pencarian' : undefined}
-                onAction={search ? () => setSearch('') : undefined}
+                actionLabel={debouncedSearch ? 'Hapus Pencarian' : undefined}
+                onAction={debouncedSearch ? () => setSearch('') : undefined}
               />
             )
           }
@@ -205,11 +226,10 @@ export default function CatalogScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          // Pull-to-refresh
           refreshing={refreshing}
           onRefresh={refresh}
         />
-      ) : null}
+      )}
     </View>
   );
 }
@@ -227,9 +247,6 @@ const styles = StyleSheet.create({
   title:    { fontSize: 22, fontWeight: '800', color: Colors.secondary },
   subtitle: { fontSize: 13, color: Colors.textGray, marginTop: 2 },
 
-  loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  loadingText:   { fontSize: 14, color: Colors.textGray },
-
   // Search
   searchBox: {
     flexDirection: 'row', alignItems: 'center',
@@ -241,18 +258,22 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, color: Colors.secondary },
 
+  // Result info
+  searchResultInfo: { paddingHorizontal: 16, paddingBottom: 4 },
+  searchResultText: { fontSize: 12, color: Colors.textGray, fontStyle: 'italic' },
+
   // Sort
   sortRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 8, gap: 6, flexWrap: 'wrap',
   },
-  sortLabel:         { fontSize: 12, color: Colors.textGray, fontWeight: '500', marginRight: 4 },
-  sortChip:          { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
-  sortChipActive:    { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
-  sortChipText:      { fontSize: 12, color: Colors.textGray, fontWeight: '500' },
+  sortLabel:          { fontSize: 12, color: Colors.textGray, fontWeight: '500', marginRight: 4 },
+  sortChip:           { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  sortChipActive:     { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
+  sortChipText:       { fontSize: 12, color: Colors.textGray, fontWeight: '500' },
   sortChipTextActive: { color: Colors.primary, fontWeight: '700' },
 
-  // Offline banner
+  // Offline
   offlineBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: Colors.warning + '15',
@@ -260,6 +281,9 @@ const styles = StyleSheet.create({
     borderRadius: 10, padding: 10,
   },
   offlineText: { fontSize: 12, color: Colors.warning, fontWeight: '500' },
+
+  // Skeleton
+  skeletonContainer: { paddingTop: 8 },
 
   list: { paddingBottom: 24 },
 });
