@@ -62,6 +62,19 @@ export default function RootLayout() {
                   presentation: 'modal',
                 }}
               />
+              {/* Camera — fullscreen modal */}
+              <Stack.Screen
+                name="camera/index"
+                options={{
+                  animation: 'slide_from_bottom',
+                  presentation: 'fullScreenModal',
+                }}
+              />
+              {/* Maps */}
+              <Stack.Screen
+                name="maps/index"
+                options={{ animation: 'slide_from_right' }}
+              />
             </Stack>
           </CartProvider>
         </AuthProvider>

@@ -229,11 +229,12 @@ export const MOCK_ORDERS = [
     statusLabel: 'Terkirim',
     items: [
       { foodId: '1', name: 'Nasi Goreng Spesial', qty: 2, price: 25000 },
-      { foodId: '6', name: 'Es Teh Manis Jumbo', qty: 2, price: 8000 },
+      { foodId: '6', name: 'Es Teh Manis Jumbo',  qty: 2, price: 8000  },
     ],
     deliveryFee: 5000,
     address: 'Jl. Kebon Sirih No.12, Jakarta Pusat',
     note: 'Jangan pedas ya kak',
+    restaurant: { lat: -6.1754, lng: 106.8272, name: 'FlavorDash Kitchen Pusat' },
   },
   {
     id: 'ORD-20240625-002',
@@ -248,6 +249,7 @@ export const MOCK_ORDERS = [
     deliveryFee: 7000,
     address: 'Jl. Kebon Sirih No.12, Jakarta Pusat',
     note: '',
+    restaurant: { lat: -6.2088, lng: 106.8456, name: 'FlavorDash Cabang Selatan' },
   },
   {
     id: 'ORD-20240620-003',
@@ -260,5 +262,6 @@ export const MOCK_ORDERS = [
     deliveryFee: 5000,
     address: 'Jl. Kebon Sirih No.12, Jakarta Pusat',
     note: 'Topping cokelat double',
+    restaurant: { lat: -6.1945, lng: 106.7891, name: 'FlavorDash Cabang Barat' },
   },
 ];

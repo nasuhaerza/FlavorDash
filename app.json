@@ -8,20 +8,41 @@
     "scheme": "flavordash",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "FlavorDash membutuhkan akses kamera untuk mengambil foto bukti penerimaan pesanan.",
+        "NSLocationWhenInUseUsageDescription": "FlavorDash membutuhkan lokasi untuk menampilkan peta restoran."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundColor": "#FF6B35"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "FlavorDash membutuhkan akses kamera untuk foto bukti pesanan."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "FlavorDash membutuhkan lokasi untuk menampilkan peta restoran."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false
