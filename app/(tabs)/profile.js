@@ -29,6 +29,7 @@ import Colors from '../../constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCamera } from '../../hooks/useCamera';
 import { useNotification } from '../../hooks/useNotification';
+import { useSupabaseStatus } from '../../hooks/useSupabaseStatus';
 import { formatDate } from '../../utils/formatters';
 import { getTokenRemainingTime } from '../../utils/jwtHelper';
 

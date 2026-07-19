@@ -29,8 +29,18 @@ export async function signIn(email, password) {
     return { token, user: safeUser };
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-  if (error) throw new Error(error.message);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email:    email.trim().toLowerCase(),
+    password,
+  });
+  if (error) {
+    const msg = error.message?.toLowerCase() ?? '';
+    if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('email not confirmed'))
+      throw new Error('Email atau password salah, atau akun belum dikonfirmasi.');
+    if (msg.includes('email not confirmed'))
+      throw new Error('Email belum dikonfirmasi. Cek inbox Anda.');
+    throw new Error(error.message);
+  }
 
   const sbUser = data.user;
   const meta   = sbUser.user_metadata ?? {};
@@ -53,28 +63,46 @@ export async function signIn(email, password) {
 // ── Register ─────────────────────────────────────────
 export async function signUp(email, password, name) {
   if (!isConfigured()) {
-    // Fallback: simulasi register → langsung login dengan akun demo
     const demoUser = MOCK_USERS[0];
     const { password: _pw, ...safeUser } = demoUser;
     const token = generateToken({ sub: demoUser.id, name: demoUser.name, email: demoUser.email, avatar: demoUser.avatar }, 7200);
     return { token, user: { ...safeUser, name, email } };
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+
   const { data, error } = await supabase.auth.signUp({
-    email:    email.trim(),
+    email:    cleanEmail,
     password,
     options:  { data: { name } },
   });
 
-  if (error) throw new Error(error.message);
-
-  // Supabase mengirim email konfirmasi — kembalikan session jika langsung aktif
-  if (data.session) {
-    return signIn(email, password);
+  if (error) {
+    // Terjemahkan pesan error Supabase ke Bahasa Indonesia
+    const msg = error.message?.toLowerCase() ?? '';
+    if (msg.includes('invalid email') || msg.includes('email'))
+      throw new Error('Format email tidak valid. Pastikan email Anda benar.');
+    if (msg.includes('password'))
+      throw new Error('Password terlalu lemah. Gunakan minimal 6 karakter.');
+    if (msg.includes('already registered') || msg.includes('already been registered'))
+      throw new Error('Email sudah terdaftar. Silakan login atau gunakan email lain.');
+    throw new Error(error.message);
   }
 
-  // Email konfirmasi diperlukan
-  throw new Error('Registrasi berhasil! Silakan cek email Anda untuk konfirmasi.');
+  // Jika ada session langsung (email confirmation dinonaktifkan di Supabase)
+  if (data.session) {
+    return signIn(cleanEmail, password);
+  }
+
+  // Jika user ada tapi tidak ada session → email confirmation diperlukan
+  if (data.user) {
+    throw new Error(
+      'Registrasi berhasil! Silakan cek email Anda untuk konfirmasi akun sebelum login.\n\n' +
+      'Tip: Cek folder Spam jika tidak menemukan email.'
+    );
+  }
+
+  throw new Error('Registrasi gagal. Silakan coba lagi.');
 }
 
 // ── Logout ───────────────────────────────────────────
@@ -90,7 +118,23 @@ export async function getSession() {
   return session;
 }
 
-// ── Get current user ─────────────────────────────────
+// ── Update user metadata ─────────────────────────────
+export async function updateProfile({ name, phone, address, avatarUrl }) {
+  if (!isConfigured()) return;
+
+  const updates = {};
+  if (name)      updates.name        = name;
+  if (phone)     updates.phone       = phone;
+  if (address)   updates.address     = address;
+  if (avatarUrl) updates.avatar_url  = avatarUrl;
+
+  const { error } = await supabase.auth.updateUser({
+    data: updates,
+  });
+
+  if (error) throw new Error(error.message);
+}
+
 export async function getCurrentUser() {
   if (!isConfigured()) return null;
   const { data: { user }, error } = await supabase.auth.getUser();

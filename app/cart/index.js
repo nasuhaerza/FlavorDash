@@ -22,7 +22,9 @@ import Header from '../../components/layout/Header';
 import Button from '../../components/ui/Button';
 import Colors from '../../constants/Colors';
 import { useCart } from '../../contexts/CartContext';
+import { createOrder } from '../../services/supabaseFoodService';
 import { formatPrice } from '../../utils/formatters';
+
 
 // Komponen satu baris item keranjang
 function CartItem({ item, onIncrease, onDecrease, onRemove }) {

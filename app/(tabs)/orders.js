@@ -2,8 +2,8 @@
  * app/(tabs)/orders.js
  * Riwayat Pesanan — PROTECTED ROUTE
  *
- * Data diambil dari Supabase via useOrders hook
- * (fallback ke mockData jika Supabase belum dikonfigurasi)
+ * Data diambil dari Supabase via useOrders hook.
+ * Realtime subscription via useRealtimeOrders — update otomatis.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -26,21 +26,28 @@ import EmptyState from '../../components/ui/EmptyState';
 import Colors from '../../constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
+import { useRealtimeOrders } from '../../hooks/useRealtimeOrders';
 
 export default function OrdersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
-  // Ambil data dari Supabase / fallback
+  // Fetch orders (polling)
   const { data, loading, refreshing, error, source, refresh } = useOrders();
+
+  // Realtime subscription — update otomatis saat status berubah
+  const { orders: realtimeOrders } = useRealtimeOrders(user?.id);
+
+  // Pakai realtimeOrders jika ada, fallback ke data polling
+  const displayOrders = realtimeOrders.length > 0 ? realtimeOrders : data;
 
   const paddingTop =
     Platform.OS === 'android'
       ? (StatusBar.currentHeight ?? 0) + 8
       : insets.top + 8;
 
-  // Tidak login — tampilkan prompt
+  // Guest state
   if (!isAuthenticated) {
     return (
       <View style={styles.guestContainer}>
@@ -66,7 +73,7 @@ export default function OrdersScreen() {
         <View>
           <Text style={styles.title}>Pesanan Saya 📦</Text>
           <Text style={styles.subtitle}>
-            {loading ? 'Memuat...' : `${data.length} pesanan tercatat`}
+            {loading ? 'Memuat...' : `${displayOrders.length} pesanan tercatat`}
           </Text>
         </View>
         {loading && !refreshing && (
@@ -74,19 +81,19 @@ export default function OrdersScreen() {
         )}
       </View>
 
-      {/* Offline / sumber data */}
-      {source === 'local' && !loading && (
-        <View style={styles.offlineBanner}>
-          <Ionicons name="cloud-offline-outline" size={13} color={Colors.warning} />
-          <Text style={styles.offlineText}>Data dari cache lokal</Text>
+      {/* Sumber data */}
+      {source === 'supabase' && !loading && (
+        <View style={[styles.sourceBanner, { backgroundColor: Colors.success + '15' }]}>
+          <Ionicons name="cloud-done-outline" size={13} color={Colors.success} />
+          <Text style={[styles.sourceBannerText, { color: Colors.success }]}>
+            Live — Supabase Realtime aktif
+          </Text>
         </View>
       )}
-      {source === 'supabase' && !loading && (
-        <View style={[styles.offlineBanner, { backgroundColor: Colors.success + '15' }]}>
-          <Ionicons name="cloud-done-outline" size={13} color={Colors.success} />
-          <Text style={[styles.offlineText, { color: Colors.success }]}>
-            Terhubung ke Supabase
-          </Text>
+      {source === 'local' && !loading && (
+        <View style={styles.sourceBanner}>
+          <Ionicons name="cloud-offline-outline" size={13} color={Colors.warning} />
+          <Text style={styles.sourceBannerText}>Data dari cache lokal</Text>
         </View>
       )}
 
@@ -104,7 +111,7 @@ export default function OrdersScreen() {
       {/* List */}
       {!error && (
         <FlatList
-          data={data}
+          data={displayOrders}
           keyExtractor={(o) => o.id}
           renderItem={({ item }) => (
             <OrderCard
@@ -152,12 +159,12 @@ const styles = StyleSheet.create({
   title:    { fontSize: 22, fontWeight: '800', color: Colors.secondary },
   subtitle: { fontSize: 13, color: Colors.textGray, marginTop: 2 },
 
-  offlineBanner: {
+  sourceBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: Colors.warning + '15',
     paddingHorizontal: 16, paddingVertical: 7,
   },
-  offlineText: { fontSize: 12, color: Colors.warning, fontWeight: '500' },
+  sourceBannerText: { fontSize: 12, color: Colors.warning, fontWeight: '500' },
 
   list: { paddingTop: 8, paddingBottom: 24 },
 
@@ -165,9 +172,9 @@ const styles = StyleSheet.create({
     flex: 1, justifyContent: 'center', alignItems: 'center',
     padding: 32, backgroundColor: Colors.background,
   },
-  guestIcon:  { fontSize: 56, marginBottom: 16 },
-  guestTitle: { fontSize: 20, fontWeight: '800', color: Colors.secondary, marginBottom: 8 },
-  guestText:  { fontSize: 14, color: Colors.textGray, textAlign: 'center', lineHeight: 21, marginBottom: 24 },
-  loginBtn:   { backgroundColor: Colors.primary, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
+  guestIcon:    { fontSize: 56, marginBottom: 16 },
+  guestTitle:   { fontSize: 20, fontWeight: '800', color: Colors.secondary, marginBottom: 8 },
+  guestText:    { fontSize: 14, color: Colors.textGray, textAlign: 'center', lineHeight: 21, marginBottom: 24 },
+  loginBtn:     { backgroundColor: Colors.primary, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
   loginBtnText: { color: Colors.white, fontSize: 15, fontWeight: '700' },
 });

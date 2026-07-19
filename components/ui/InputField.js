@@ -1,17 +1,16 @@
 /**
  * components/ui/InputField.js
- * Input field reusable dengan label, icon, error message, dan password toggle
+ * Input field reusable — versi yang dijamin keyboard bisa muncul
  *
- * Perbaikan keyboard:
- * - returnKeyType untuk tombol Done/Next/Go di keyboard
- * - onSubmitEditing callback saat user tekan tombol keyboard
- * - blurOnSubmit untuk dismiss keyboard otomatis
- * - textContentType untuk iOS autofill (email, password)
- * - autoComplete untuk Android autofill
+ * Perubahan kunci:
+ * - Hapus pointerEvents dari View wrapper
+ * - inputRow menggunakan TouchableOpacity ringan agar seluruh area
+ *   bisa di-tap untuk fokus ke TextInput
+ * - Tidak ada komponen apapun yang menghalangi touch ke TextInput
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     Platform,
     StyleSheet,
@@ -28,49 +27,50 @@ export default function InputField({
   onChangeText,
   placeholder,
   secureTextEntry = false,
-  keyboardType = 'default',
-  autoCapitalize = 'none',
-  autoComplete,           // Android autofill: 'email' | 'password' | 'current-password'
-  textContentType,        // iOS autofill: 'emailAddress' | 'password' | 'newPassword'
-  returnKeyType = 'done', // 'done' | 'next' | 'go' | 'search' | 'send'
-  onSubmitEditing,        // callback saat tombol keyboard ditekan
-  blurOnSubmit,           // dismiss keyboard setelah submit (default true kecuali ada next field)
-  inputRef,               // ref untuk fokus antar field (field chaining)
+  keyboardType    = 'default',
+  autoCapitalize  = 'none',
+  autoComplete,
+  textContentType,
+  returnKeyType   = 'done',
+  onSubmitEditing,
+  blurOnSubmit,
+  inputRef,
   error,
   leftIcon,
   editable = true,
   style,
 }) {
   const [showPassword, setShowPassword] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
+  const [isFocused,    setIsFocused]    = useState(false);
 
-  const isPassword = secureTextEntry;
-  const secure = isPassword && !showPassword;
+  // Ref internal agar area bisa di-tap untuk fokus
+  const internalRef = useRef(null);
+  const ref = inputRef ?? internalRef;
 
-  // Default blurOnSubmit: true jika tidak ada next field, false jika ada
-  const shouldBlurOnSubmit = blurOnSubmit !== undefined
-    ? blurOnSubmit
-    : returnKeyType !== 'next';
+  const secure = secureTextEntry && !showPassword;
+
+  const shouldBlurOnSubmit =
+    blurOnSubmit !== undefined ? blurOnSubmit : returnKeyType !== 'next';
 
   return (
     <View style={[styles.wrapper, style]}>
-      {/* Label */}
       {label && <Text style={styles.label}>{label}</Text>}
 
-      {/* Input Row */}
-      <View
+      {/* Tap seluruh baris → fokus ke TextInput */}
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => ref.current?.focus()}
         style={[
           styles.inputRow,
           isFocused && styles.inputRowFocused,
-          !!error && styles.inputRowError,
+          !!error  && styles.inputRowError,
           !editable && styles.inputRowDisabled,
         ]}
       >
-        {/* Left Icon */}
         {leftIcon && <View style={styles.leftIconWrap}>{leftIcon}</View>}
 
         <TextInput
-          ref={inputRef}
+          ref={ref}
           style={styles.input}
           value={value}
           onChangeText={onChangeText}
@@ -88,17 +88,16 @@ export default function InputField({
           editable={editable}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          // Padding vertikal konsisten lintas platform
           paddingVertical={Platform.OS === 'android' ? 10 : 0}
+          // Pastikan tidak ada yang menghalangi touch
+          pointerEvents="auto"
         />
 
-        {/* Password Toggle */}
-        {isPassword && (
+        {secureTextEntry && (
           <TouchableOpacity
-            onPress={() => setShowPassword((v) => !v)}
+            onPress={() => setShowPassword(v => !v)}
             style={styles.rightIconWrap}
-            // Jangan dismiss keyboard saat toggle password
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -107,24 +106,17 @@ export default function InputField({
             />
           </TouchableOpacity>
         )}
-      </View>
+      </TouchableOpacity>
 
-      {/* Error Message */}
       {!!error && <Text style={styles.error}>{error}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.secondary,
-    marginBottom: 6,
-  },
+  wrapper:    { marginBottom: 16 },
+  label:      { fontSize: 13, fontWeight: '600', color: Colors.secondary, marginBottom: 6 },
+
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -143,29 +135,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  inputRowError: {
-    borderColor: Colors.danger,
-  },
-  inputRowDisabled: {
-    backgroundColor: Colors.background,
-    opacity: 0.7,
-  },
-  leftIconWrap: {
-    marginRight: 10,
-  },
-  rightIconWrap: {
-    marginLeft: 8,
-    padding: 4,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: Colors.secondary,
-  },
-  error: {
-    fontSize: 12,
-    color: Colors.danger,
-    marginTop: 4,
-    marginLeft: 4,
-  },
+  inputRowError:    { borderColor: Colors.danger },
+  inputRowDisabled: { backgroundColor: Colors.background, opacity: 0.7 },
+
+  leftIconWrap:  { marginRight: 10 },
+  rightIconWrap: { marginLeft: 8, padding: 4 },
+
+  input: { flex: 1, fontSize: 15, color: Colors.secondary },
+  error: { fontSize: 12, color: Colors.danger, marginTop: 4, marginLeft: 4 },
 });

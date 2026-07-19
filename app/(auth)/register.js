@@ -64,13 +64,24 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       await register(email, password, name);
+      // Registrasi berhasil + session langsung aktif (email confirmation dinonaktifkan)
       Alert.alert(
         '✅ Registrasi Berhasil!',
         'Akun Anda telah dibuat. Selamat datang di FlavorDash!',
         [{ text: 'Mulai Pesan', onPress: () => router.replace('/(tabs)/home') }]
       );
     } catch (err) {
-      Alert.alert('Gagal Mendaftar', err.message || 'Terjadi kesalahan. Silakan coba lagi.');
+      const msg = err.message ?? '';
+      // Pesan "Registrasi berhasil" sebenarnya bukan error — email confirmation diperlukan
+      if (msg.startsWith('Registrasi berhasil')) {
+        Alert.alert(
+          '📧 Cek Email Anda',
+          msg,
+          [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
+        );
+      } else {
+        Alert.alert('Gagal Mendaftar', msg || 'Terjadi kesalahan. Silakan coba lagi.');
+      }
     } finally {
       setLoading(false);
     }

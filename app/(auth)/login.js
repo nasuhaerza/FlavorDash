@@ -58,7 +58,31 @@ export default function LoginScreen() {
       await login(email, password);
       router.replace('/(tabs)/home');
     } catch (err) {
-      Alert.alert('Login Gagal', err.message || 'Terjadi kesalahan. Silakan coba lagi.');
+      const msg = err.message ?? '';
+      // Tawarkan kirim ulang konfirmasi jika email belum dikonfirmasi
+      if (msg.includes('dikonfirmasi') || msg.includes('confirmed')) {
+        Alert.alert(
+          'Email Belum Dikonfirmasi',
+          'Akun Anda belum dikonfirmasi. Mau kami kirimkan ulang email konfirmasi?',
+          [
+            { text: 'Tidak', style: 'cancel' },
+            {
+              text: 'Kirim Ulang',
+              onPress: async () => {
+                try {
+                  const { supabase } = await import('../../services/supabase');
+                  await supabase.auth.resend({ type: 'signup', email: email.trim().toLowerCase() });
+                  Alert.alert('✉️ Email Terkirim', 'Cek inbox atau folder Spam Anda.');
+                } catch {
+                  Alert.alert('Gagal', 'Tidak bisa mengirim ulang email. Coba beberapa saat lagi.');
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Login Gagal', msg || 'Terjadi kesalahan. Silakan coba lagi.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -133,11 +157,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.forgotWrap}
-            onPress={() => Alert.alert(
-              'Lupa Password?',
-              'Fitur reset password akan segera tersedia.',
-              [{ text: 'OK' }]
-            )}
+            onPress={() => router.push('/(auth)/forgot-password')}
           >
             <Text style={styles.forgotText}>Lupa password?</Text>
           </TouchableOpacity>
